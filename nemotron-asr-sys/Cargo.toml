@@ -1,0 +1,12 @@
+[package]
+name = "nemotron-asr-sys"
+version = "0.1.0"
+edition = "2021"
+description = "Low-level FFI bindings for nemotron-asr.cpp"
+license = "MIT"
+links = "nemotron_asr"
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "0.70"

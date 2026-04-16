@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "nemotron-asr-sys",
+]
+resolver = "2"
