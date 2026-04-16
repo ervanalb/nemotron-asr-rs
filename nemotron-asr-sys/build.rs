@@ -11,7 +11,7 @@ fn main() {
         .unwrap()
         .join("nemotron-asr.cpp");
 
-    let header_path = nemotron_dir.join("src/nemotron_asr_c.h");
+    let wrapper_path = PathBuf::from(&manifest_dir).join("wrapper.h");
 
     // Tell cargo to look for the library in the nemotron-asr.cpp directory
     println!("cargo:rustc-link-search=native={}", nemotron_dir.display());
@@ -34,12 +34,23 @@ fn main() {
         "cargo:rerun-if-changed={}",
         nemotron_dir.join("libnemotron_asr.a").display()
     );
-    println!("cargo:rerun-if-changed={}", header_path.display());
+    println!("cargo:rerun-if-changed={}", wrapper_path.display());
 
     // Generate bindings using bindgen
     let bindings = bindgen::Builder::default()
         // Input header
-        .header(header_path.to_str().unwrap())
+        .header(wrapper_path.to_str().unwrap())
+        // Allowlist Nemo API
+        .allowlist_function("c_nemo_.*")
+        .allowlist_function("nemo_cache_config_.*")
+        .allowlist_type("nemo_.*")
+        // Allowlist GGML backend API
+        .allowlist_function("ggml_backend_load_all")
+        .allowlist_function("ggml_backend_dev_count")
+        .allowlist_function("ggml_backend_dev_get")
+        .allowlist_function("ggml_backend_dev_name")
+        .allowlist_type("ggml_backend_dev_t")
+        // Rustify enums
         .rustified_enum("nemo_latency_mode")
         .generate()
         .expect("Unable to generate bindings");

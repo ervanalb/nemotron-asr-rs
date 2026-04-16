@@ -1,0 +1,14 @@
+[package]
+name = "nemotron-asr"
+version = "0.1.0"
+edition = "2021"
+description = "Safe, idiomatic Rust bindings for nemotron-asr.cpp"
+license = "MIT"
+
+[dependencies]
+nemotron-asr-sys = { path = "../nemotron-asr-sys" }
+thiserror = "2.0"
+
+[[example]]
+name = "transcribe_stream"
+path = "examples/transcribe_stream.rs"
