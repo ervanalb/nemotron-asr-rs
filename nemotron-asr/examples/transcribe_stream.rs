@@ -1,8 +1,24 @@
-use nemotron_asr::{backend_count, get_backend, load_backends, CacheConfig, Context};
+use nemotron_asr::{backend_count, get_backend, CacheConfig, Context};
 use std::env;
 use std::fs::File;
 use std::io::{self, stdin, Read};
 use std::time::Instant;
+
+fn init() {
+    #[cfg(feature = "ggml_backend_dl")]
+    {
+        // In an actual application, you wouldn't use this compile-time environment variable directly.
+        // Instead, in your build.rs, you would copy all the backend dylibs
+        // from the location specified in this environment variable
+        // to a resource folder in your application's OUT_DIR.
+        // Then, you would bundle that resource folder with your application,
+        // and use its (relative) path in the load_backends_from_path() call.
+
+        let backend_dir = env!("DEP_NEMOTRON_ASR_GGML_BACKEND_DIR");
+        eprintln!("Loading plugins from {backend_dir}");
+        nemotron_asr::load_backends_from_path(backend_dir);
+    }
+}
 
 fn print_usage(prog: &str) {
     eprintln!("Usage: {} <model.gguf> <audio.pcm|-|--stdin> [chunk_ms] [right_context] [--backend <name>]", prog);
@@ -16,7 +32,6 @@ fn print_usage(prog: &str) {
     eprintln!();
 
     // Load backends to discover what's available
-    load_backends();
     let dev_count = backend_count();
 
     eprintln!("Available backends:");
@@ -54,6 +69,8 @@ fn print_usage(prog: &str) {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    init();
+
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 3 {

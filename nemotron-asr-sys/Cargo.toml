@@ -4,12 +4,13 @@ version = "0.1.0"
 edition = "2021"
 description = "Low-level FFI bindings for nemotron-asr.cpp"
 license = "MIT"
-links = "nemotron_asr"
+links = "nemotron_asr_sys"
 
 [features]
 default = ["vendored"]
 vendored = ["dep:num_cpus"]
 bindgen = ["dep:bindgen"]
+ggml_backend_dl = ["vendored"]
 
 [dependencies]
 

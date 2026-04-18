@@ -110,10 +110,13 @@ impl BackendDevice {
     }
 }
 
-/// Load all available GGML backends
-pub fn load_backends() {
+/// Load all available GGML backends from the specified path
+#[cfg(feature = "ggml_backend_dl")]
+pub fn load_backends_from_path(path: impl AsRef<Path>) {
+    let path_str = path.as_ref().to_str().expect("path must be valid UTF-8");
+    let path_c = CString::new(path_str).expect("path must not contain null bytes");
     unsafe {
-        ffi::ggml_backend_load_all();
+        ffi::ggml_backend_load_all_from_path(path_c.as_ptr());
     }
 }
 
@@ -136,7 +139,6 @@ pub fn get_backend(index: usize) -> Option<BackendDevice> {
 
 /// List all available backends
 pub fn list_backends() -> Vec<BackendDevice> {
-    load_backends();
     let count = backend_count();
     (0..count).filter_map(get_backend).collect()
 }
@@ -308,7 +310,6 @@ mod tests {
 
     #[test]
     fn test_backend_list() {
-        load_backends();
         let count = backend_count();
         println!("Available backends: {}", count);
 

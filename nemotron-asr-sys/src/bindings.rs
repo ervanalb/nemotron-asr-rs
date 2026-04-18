@@ -173,5 +173,5 @@ extern "C" {
     pub fn ggml_backend_dev_get(index: usize) -> ggml_backend_dev_t;
 }
 extern "C" {
-    pub fn ggml_backend_load_all();
+    pub fn ggml_backend_load_all_from_path(dir_path: *const ::std::os::raw::c_char);
 }

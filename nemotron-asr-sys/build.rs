@@ -3,6 +3,28 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+/// Get a CMake bool value from an environment variable
+/// Returns the default if not set, validates that the value is either ON or OFF
+fn get_cmake_bool(var_name: &str, default: bool) -> bool {
+    println!("cargo:rerun-if-env-changed={}", var_name);
+
+    let value =
+        env::var(var_name).unwrap_or_else(|_| if default { "ON" } else { "OFF" }.to_string());
+    match value.as_str() {
+        "ON" => true,
+        "OFF" => false,
+        _ => panic!(
+            "Invalid value for {}: '{}'. Must be 'ON' or 'OFF'",
+            var_name, value
+        ),
+    }
+}
+
+/// Format a CMake boolean argument
+fn cmake_bool_arg(name: &str, value: bool) -> String {
+    format!("-D{}={}", name, if value { "ON" } else { "OFF" })
+}
+
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let manifest_path = PathBuf::from(&manifest_dir);
@@ -12,9 +34,8 @@ fn main() {
 
     #[cfg(feature = "vendored")]
     {
-        // Build the vendored library
-        build_vendored(&library_dir);
-        link_vendored(&library_dir);
+        // Build and link the vendored library
+        build_and_link_vendored(&library_dir);
     }
 
     #[cfg(not(feature = "vendored"))]
@@ -31,7 +52,7 @@ fn main() {
 }
 
 #[cfg(feature = "vendored")]
-fn build_vendored(library_dir: &PathBuf) {
+fn build_and_link_vendored(library_dir: &PathBuf) {
     let ggml_dir = library_dir.join("ggml");
     let build_dir = ggml_dir.join("build");
 
@@ -55,14 +76,25 @@ fn build_vendored(library_dir: &PathBuf) {
     }
 
     // Run cmake to configure GGML
-    let cmake_status = Command::new("cmake")
+    let backend_dl = cfg!(feature = "ggml_backend_dl");
+    let openmp = get_cmake_bool("GGML_OPENMP", true);
+
+    let mut cmake_cmd = Command::new("cmake");
+    cmake_cmd
         .current_dir(&build_dir)
         .arg("..")
         .arg("-DBUILD_SHARED_LIBS=OFF")
-        .arg("-DGGML_OPENMP=OFF")
-        //.arg("-DCMAKE_CXX_FLAGS=-static-libstdc++")
-        .status()
-        .expect("Failed to run cmake");
+        .arg(cmake_bool_arg("GGML_BACKEND_DL", backend_dl))
+        .arg(cmake_bool_arg("GGML_OPENMP", openmp));
+
+    // When using backend_dl, also set GGML_NATIVE=OFF and GGML_CPU_ALL_VARIANTS=ON
+    if backend_dl {
+        cmake_cmd
+            .arg("-DGGML_NATIVE=OFF")
+            .arg("-DGGML_CPU_ALL_VARIANTS=ON");
+    }
+
+    let cmake_status = cmake_cmd.status().expect("Failed to run cmake");
 
     if !cmake_status.success() {
         panic!("GGML configuration failed");
@@ -84,11 +116,33 @@ fn build_vendored(library_dir: &PathBuf) {
         panic!("GGML build failed");
     }
 
+    // Copy GGML backend plugins to OUT_DIR when using backend_dl
+    if backend_dl {
+        let out_dir = env::var("OUT_DIR").unwrap();
+        let ggml_backend_dir = PathBuf::from(&out_dir).join("ggml_backends");
+        fs::create_dir_all(&ggml_backend_dir).expect("Failed to create ggml_backends directory");
+
+        let bin_dir = ggml_dir.join("build/bin");
+        let entries = fs::read_dir(&bin_dir).expect("Failed to read ggml build/bin directory");
+
+        for entry in entries {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if path.is_file() {
+                let file_name = path.file_name().unwrap();
+                let dest = ggml_backend_dir.join(file_name);
+                fs::copy(&path, &dest).expect("Failed to copy backend plugin file");
+            }
+        }
+
+        // Expose the backends directory path to dependent crates
+        println!("cargo:ggml_backend_dir={}", ggml_backend_dir.display());
+    }
+
     // Build nemotron-asr using make (build only the static library)
     let make_status = Command::new("make")
         .current_dir(&library_dir)
         .arg("libnemotron_asr.a")
-        //.env("LDFLAGS", "-static-libstdc++")
         .status()
         .expect("Failed to run make");
 
@@ -105,18 +159,17 @@ fn build_vendored(library_dir: &PathBuf) {
         "cargo:rerun-if-changed={}",
         library_dir.join("Makefile").display()
     );
-}
 
-#[cfg(feature = "vendored")]
-fn link_vendored(nemotron_dir: &PathBuf) {
+    // === Linking ===
+
     // Tell cargo to look for the library in the nemotron-asr.cpp directory
-    println!("cargo:rustc-link-search=native={}", nemotron_dir.display());
+    println!("cargo:rustc-link-search=native={}", library_dir.display());
 
     // Link nemotron_asr library
     println!("cargo:rustc-link-lib=static=nemotron_asr");
 
     // Add GGML library path
-    let ggml_lib_path = nemotron_dir.join("ggml/build/src");
+    let ggml_lib_path = library_dir.join("ggml/build/src");
     println!("cargo:rustc-link-search=native={}", ggml_lib_path.display());
 
     // Find and link all .a files in the GGML build directory
@@ -145,6 +198,11 @@ fn link_vendored(nemotron_dir: &PathBuf) {
         for lib_name in lib_names {
             println!("cargo:rustc-link-lib=static={}", lib_name);
         }
+    }
+
+    // Link OpenMP if enabled and not using backend_dl
+    if !backend_dl && openmp {
+        println!("cargo:rustc-link-lib=gomp");
     }
 
     // Link C++ standard library based on environment variables
@@ -191,8 +249,9 @@ fn generate_bindings(manifest_path: &PathBuf) {
         .allowlist_function("c_nemo_.*")
         .allowlist_function("nemo_cache_config_.*")
         .allowlist_type("nemo_.*")
-        // Allowlist GGML backend API
-        .allowlist_function("ggml_backend_load_all")
+        .allowlist_function("ggml_backend_load_all_from_path");
+
+    let bindings = bindings
         .allowlist_function("ggml_backend_dev_count")
         .allowlist_function("ggml_backend_dev_get")
         .allowlist_function("ggml_backend_dev_name")
