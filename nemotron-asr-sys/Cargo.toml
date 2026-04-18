@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2021"
 description = "Low-level FFI bindings for nemotron-asr.cpp"
 license = "MIT"
+repository = "https://github.com/ervanalb/nemotron-asr-rs"
+homepage = "https://github.com/ervanalb/nemotron-asr-rs"
+documentation = "https://docs.rs/nemotron-asr-sys"
+readme = "../README.md"
+keywords = ["speech-recognition", "asr", "nemotron", "ggml", "ffi"]
+categories = ["artificial-intelligence", "multimedia::audio", "external-ffi-bindings"]
 links = "nemotron_asr_sys"
 
 [features]

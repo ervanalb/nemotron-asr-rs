@@ -29,8 +29,8 @@ fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let manifest_path = PathBuf::from(&manifest_dir);
 
-    // Path to nemotron-asr.cpp (now a submodule)
-    let library_dir = manifest_path.parent().unwrap().join("nemotron-asr.cpp");
+    // Path to nemotron-asr.cpp (submodule in this directory)
+    let library_dir = manifest_path.join("nemotron-asr.cpp");
 
     #[cfg(feature = "vendored")]
     {

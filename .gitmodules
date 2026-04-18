@@ -1,3 +1,3 @@
-[submodule "nemotron-asr.cpp"]
-	path = nemotron-asr.cpp
+[submodule "nemotron-asr-sys/nemotron-asr.cpp"]
+	path = nemotron-asr-sys/nemotron-asr.cpp
 	url = https://github.com/ervanalb/nemotron-asr.cpp

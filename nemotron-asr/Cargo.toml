@@ -2,8 +2,14 @@
 name = "nemotron-asr"
 version = "0.1.0"
 edition = "2021"
-description = "Safe, idiomatic Rust bindings for nemotron-asr.cpp"
+description = "Safe, idiomatic Rust bindings for nemotron-asr.cpp - high-performance streaming ASR with NVIDIA's Nemotron model"
 license = "MIT"
+repository = "https://github.com/ervanalb/nemotron-asr-rs"
+homepage = "https://github.com/ervanalb/nemotron-asr-rs"
+documentation = "https://docs.rs/nemotron-asr"
+readme = "../README.md"
+keywords = ["speech-recognition", "asr", "nemotron", "ggml", "streaming"]
+categories = ["artificial-intelligence", "multimedia::audio", "api-bindings"]
 links = "nemotron_asr_ggml_backends"
 
 [features]
