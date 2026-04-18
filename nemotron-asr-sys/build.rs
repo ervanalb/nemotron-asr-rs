@@ -167,10 +167,11 @@ fn build_and_link_vendored(library_dir: &PathBuf) {
     }
 
     // Tell cargo to rerun if source files change
-    println!(
-        "cargo:rerun-if-changed={}",
-        library_dir.join("src").display()
-    );
+    // (This doesn't work because the build is in-tree)
+    //println!(
+    //    "cargo:rerun-if-changed={}",
+    //    library_dir.join("src").display()
+    //);
     println!(
         "cargo:rerun-if-changed={}",
         library_dir.join("Makefile").display()

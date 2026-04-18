@@ -116,7 +116,7 @@ fn validate_wav_format(
 
 fn process_wav_file(
     reader: &mut hound::WavReader<std::io::BufReader<File>>,
-    stream_ctx: &mut nemotron_asr::Stream,
+    mut stream_ctx: nemotron_asr::Stream,
     computed_chunk_samples: i32,
 ) -> Result<(usize, f64), Box<dyn std::error::Error>> {
     let start_time = Instant::now();
@@ -136,12 +136,13 @@ fn process_wav_file(
         }
     }
 
-    // Finalize to flush any remaining audio
+    // Finalize
     let final_text = stream_ctx.finalize();
-    if !final_text.is_empty() {
-        print!("{}", final_text);
-        io::Write::flush(&mut io::stdout())?;
-    }
+    println!();
+    println!();
+    println!("Complete transcription");
+    println!("======================");
+    println!("{}", final_text);
     println!();
 
     let processing_time = start_time.elapsed().as_secs_f64();
@@ -214,10 +215,11 @@ fn process_microphone(
 
     // Finalize
     let final_text = stream_ctx_arc.lock().unwrap().finalize();
-    if !final_text.is_empty() {
-        print!("{}", final_text);
-        io::Write::flush(&mut io::stdout())?;
-    }
+    println!();
+    println!();
+    println!("Complete transcription");
+    println!("======================");
+    println!("{}", final_text);
     println!();
 
     let processing_time = start_time.elapsed().as_secs_f64();
@@ -388,12 +390,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Process audio based on source
     let (total_samples_processed, processing_time_sec) = if let Some(wav_path) = args.wav {
-        let mut stream_ctx = ctx.create_stream(Some(&cache_cfg))?;
+        let stream_ctx = ctx.create_stream(Some(&cache_cfg))?;
         let mut reader = hound::WavReader::open(&wav_path)?;
         validate_wav_format(&reader)?;
 
         eprintln!("Streaming from WAV file...\n");
-        process_wav_file(&mut reader, &mut stream_ctx, computed_chunk_samples)?
+        process_wav_file(&mut reader, stream_ctx, computed_chunk_samples)?
     } else {
         let stream_ctx = ctx.create_stream(Some(&cache_cfg))?;
         process_microphone(stream_ctx, computed_chunk_samples)?
@@ -401,8 +403,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let total_duration_sec = total_samples_processed as f64 / 16000.0;
 
-    eprintln!("\n=== Complete ===");
-    eprintln!("\nStatistics:");
+    eprintln!("Statistics");
+    eprintln!("==========");
     eprintln!("  Audio duration:      {:.2} sec", total_duration_sec);
     eprintln!("  Processing time:     {:.2} sec", processing_time_sec);
     if total_duration_sec > 0.0 {
