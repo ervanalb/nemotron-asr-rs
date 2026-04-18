@@ -78,7 +78,15 @@ fn build_and_link_vendored(library_dir: &PathBuf) {
     // Run cmake to configure GGML
     let backend_dl = cfg!(feature = "ggml_backend_dl");
     let openmp = get_cmake_bool("GGML_OPENMP", true);
+
+    // Backend configuration
+    let cpu = get_cmake_bool("GGML_CPU", true);
+    let cuda = get_cmake_bool("GGML_CUDA", false);
     let vulkan = get_cmake_bool("GGML_VULKAN", false);
+    let metal = get_cmake_bool("GGML_METAL", false);
+    let sycl = get_cmake_bool("GGML_SYCL", false);
+    let opencl = get_cmake_bool("GGML_OPENCL", false);
+    let cann = get_cmake_bool("GGML_CANN", false);
 
     let mut cmake_cmd = Command::new("cmake");
     cmake_cmd
@@ -87,7 +95,13 @@ fn build_and_link_vendored(library_dir: &PathBuf) {
         .arg("-DBUILD_SHARED_LIBS=OFF")
         .arg(cmake_bool_arg("GGML_BACKEND_DL", backend_dl))
         .arg(cmake_bool_arg("GGML_OPENMP", openmp))
-        .arg(cmake_bool_arg("GGML_VULKAN", vulkan));
+        .arg(cmake_bool_arg("GGML_CPU", cpu))
+        .arg(cmake_bool_arg("GGML_CUDA", cuda))
+        .arg(cmake_bool_arg("GGML_VULKAN", vulkan))
+        .arg(cmake_bool_arg("GGML_METAL", metal))
+        .arg(cmake_bool_arg("GGML_SYCL", sycl))
+        .arg(cmake_bool_arg("GGML_OPENCL", opencl))
+        .arg(cmake_bool_arg("GGML_CANN", cann));
 
     // When using backend_dl, also set GGML_NATIVE=OFF and GGML_CPU_ALL_VARIANTS=ON
     if backend_dl {
@@ -216,13 +230,32 @@ fn build_and_link_vendored(library_dir: &PathBuf) {
         println!("cargo:rustc-link-lib=static={}", lib_name);
     }
 
-    // Link OpenMP if enabled and not using backend_dl
+    // Link system libraries for backends when not using backend_dl
     if !backend_dl {
         if openmp {
             println!("cargo:rustc-link-lib=gomp");
         }
+        if cuda {
+            println!("cargo:rustc-link-lib=cuda");
+            println!("cargo:rustc-link-lib=cudart");
+        }
         if vulkan {
             println!("cargo:rustc-link-lib=vulkan");
+        }
+        if metal {
+            // Metal framework is macOS-specific
+            println!("cargo:rustc-link-lib=framework=Metal");
+            println!("cargo:rustc-link-lib=framework=Foundation");
+        }
+        if sycl {
+            // SYCL library linking depends on implementation (Intel oneAPI, etc.)
+            println!("cargo:rustc-link-lib=sycl");
+        }
+        if opencl {
+            println!("cargo:rustc-link-lib=OpenCL");
+        }
+        if cann {
+            println!("cargo:rustc-link-lib=ascendcl");
         }
     }
 

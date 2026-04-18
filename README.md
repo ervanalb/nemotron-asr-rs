@@ -52,8 +52,14 @@ Here are some other ways to configure the build:
 
 * `CXXSTDLIB_LINKAGE=[dylib]|static|none` Sets how the C++ standard library should be linked in.
 * `CXXSTDLIB=[stdc++]|something else` Sets the library name of the C++ standard library
+* `GGML_CPU=[ON]|OFF` Whether to build the CPU backend.
 * `GGML_OPENMP=OFF|[ON]` Whether to build with OpenMP for the CPU backend. Requires a system library for OpenMP.
+* `GGML_CUDA=[OFF]|ON` Whether to build the CUDA backend. Requires CUDA runtime and libraries.
 * `GGML_VULKAN=[OFF]|ON` Whether to build the Vulkan backend. Requires a Vulkan system library.
+* `GGML_METAL=[OFF]|ON` Whether to build the Metal backend (macOS only). Requires Metal framework.
+* `GGML_SYCL=[OFF]|ON` Whether to build the SYCL backend. Requires SYCL implementation like Intel oneAPI.
+* `GGML_OPENCL=[OFF]|ON` Whether to build the OpenCL backend. Requires OpenCL library.
+* `GGML_CANN=[OFF]|ON` Whether to build the CANN backend. Requires Ascend CANN libraries.
 
 ## Example Usage
 
