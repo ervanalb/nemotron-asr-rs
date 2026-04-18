@@ -37,8 +37,8 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-// Include the auto-generated bindings
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+// Include the bindings (either pre-generated or generated with bindgen feature)
+include!("bindings.rs");
 
 #[cfg(test)]
 mod tests {

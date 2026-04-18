@@ -6,7 +6,13 @@ description = "Low-level FFI bindings for nemotron-asr.cpp"
 license = "MIT"
 links = "nemotron_asr"
 
+[features]
+default = ["vendored"]
+vendored = ["dep:num_cpus"]
+bindgen = ["dep:bindgen"]
+
 [dependencies]
 
 [build-dependencies]
-bindgen = "0.70"
+bindgen = { version = "0.70", optional = true }
+num_cpus = { version = "1.16", optional = true }
