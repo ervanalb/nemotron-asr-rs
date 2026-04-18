@@ -78,6 +78,7 @@ fn build_and_link_vendored(library_dir: &PathBuf) {
     // Run cmake to configure GGML
     let backend_dl = cfg!(feature = "ggml_backend_dl");
     let openmp = get_cmake_bool("GGML_OPENMP", true);
+    let vulkan = get_cmake_bool("GGML_VULKAN", false);
 
     let mut cmake_cmd = Command::new("cmake");
     cmake_cmd
@@ -85,7 +86,8 @@ fn build_and_link_vendored(library_dir: &PathBuf) {
         .arg("..")
         .arg("-DBUILD_SHARED_LIBS=OFF")
         .arg(cmake_bool_arg("GGML_BACKEND_DL", backend_dl))
-        .arg(cmake_bool_arg("GGML_OPENMP", openmp));
+        .arg(cmake_bool_arg("GGML_OPENMP", openmp))
+        .arg(cmake_bool_arg("GGML_VULKAN", vulkan));
 
     // When using backend_dl, also set GGML_NATIVE=OFF and GGML_CPU_ALL_VARIANTS=ON
     if backend_dl {
@@ -168,41 +170,60 @@ fn build_and_link_vendored(library_dir: &PathBuf) {
     // Link nemotron_asr library
     println!("cargo:rustc-link-lib=static=nemotron_asr");
 
-    // Add GGML library path
+    // Find and link all .a files in the GGML build src directory (recursively)
     let ggml_lib_path = library_dir.join("ggml/build/src");
-    println!("cargo:rustc-link-search=native={}", ggml_lib_path.display());
+    let mut lib_names: Vec<String> = Vec::new();
+    let mut search_dirs: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
 
-    // Find and link all .a files in the GGML build directory
-    if let Ok(entries) = fs::read_dir(&ggml_lib_path) {
-        let mut lib_names: Vec<String> = Vec::new();
-
-        for entry in entries.flatten() {
-            if let Ok(file_name) = entry.file_name().into_string() {
-                if file_name.starts_with("lib") && file_name.ends_with(".a") {
-                    // Extract library name: libfoo.a -> foo
-                    let lib_name = file_name
-                        .strip_prefix("lib")
-                        .unwrap()
-                        .strip_suffix(".a")
-                        .unwrap()
-                        .to_string();
-                    lib_names.push(lib_name);
+    fn find_static_libs(dir: &PathBuf, lib_names: &mut Vec<String>, search_dirs: &mut std::collections::HashSet<PathBuf>) {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    find_static_libs(&path, lib_names, search_dirs);
+                } else if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                    if file_name.starts_with("lib") && file_name.ends_with(".a") {
+                        // Extract library name: libfoo.a -> foo
+                        let lib_name = file_name
+                            .strip_prefix("lib")
+                            .unwrap()
+                            .strip_suffix(".a")
+                            .unwrap()
+                            .to_string();
+                        lib_names.push(lib_name);
+                        // Add the parent directory to search paths
+                        if let Some(parent) = path.parent() {
+                            search_dirs.insert(parent.to_path_buf());
+                        }
+                    }
                 }
             }
         }
+    }
 
-        // Sort for consistent linking order
-        lib_names.sort();
+    find_static_libs(&ggml_lib_path, &mut lib_names, &mut search_dirs);
 
-        // Link each library
-        for lib_name in lib_names {
-            println!("cargo:rustc-link-lib=static={}", lib_name);
-        }
+    // Add all directories containing .a files to the search path
+    for dir in &search_dirs {
+        println!("cargo:rustc-link-search=native={}", dir.display());
+    }
+
+    // Sort for consistent linking order
+    lib_names.sort();
+
+    // Link each library
+    for lib_name in lib_names {
+        println!("cargo:rustc-link-lib=static={}", lib_name);
     }
 
     // Link OpenMP if enabled and not using backend_dl
-    if !backend_dl && openmp {
-        println!("cargo:rustc-link-lib=gomp");
+    if !backend_dl {
+        if openmp {
+            println!("cargo:rustc-link-lib=gomp");
+        }
+        if vulkan {
+            println!("cargo:rustc-link-lib=vulkan");
+        }
     }
 
     // Link C++ standard library based on environment variables
