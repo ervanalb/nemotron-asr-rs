@@ -53,6 +53,7 @@ Here are some other ways to configure the build:
 * `CXXSTDLIB_LINKAGE=[dylib]|static|none` Sets how the C++ standard library should be linked in.
 * `CXXSTDLIB=[stdc++]|something else` Sets the library name of the C++ standard library
 * `GGML_OPENMP=OFF|[ON]` Whether to build with OpenMP for the CPU backend. Requires a system library for OpenMP.
+* `GGML_VULKAN=[OFF]|ON` Whether to build the Vulkan backend. Requires a Vulkan system library.
 
 ## Example Usage
 
