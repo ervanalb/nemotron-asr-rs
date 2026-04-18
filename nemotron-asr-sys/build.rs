@@ -29,13 +29,40 @@ fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let manifest_path = PathBuf::from(&manifest_dir);
 
-    // Path to nemotron-asr.cpp (submodule in this directory)
-    let library_dir = manifest_path.join("nemotron-asr.cpp");
+    // Path to nemotron-asr.cpp source (submodule in this directory)
+    let source_library_dir = manifest_path.join("nemotron-asr.cpp");
 
     #[cfg(feature = "vendored")]
     {
-        // Build and link the vendored library
-        build_and_link_vendored(&library_dir);
+        // Copy source to OUT_DIR and build there to avoid modifying source tree
+        let out_dir = env::var("OUT_DIR").unwrap();
+        let build_library_dir = PathBuf::from(&out_dir).join("nemotron-asr.cpp");
+
+        // Remove any existing copy
+        if build_library_dir.exists() {
+            fs::remove_dir_all(&build_library_dir).expect("Failed to remove old build directory");
+        }
+
+        // Copy source directory to OUT_DIR
+        copy_dir_recursive(&source_library_dir, &build_library_dir)
+            .expect("Failed to copy source directory to OUT_DIR");
+
+        // Tell cargo to rerun if source files change
+        println!(
+            "cargo:rerun-if-changed={}",
+            source_library_dir.join("src").display()
+        );
+        println!(
+            "cargo:rerun-if-changed={}",
+            source_library_dir.join("Makefile").display()
+        );
+        println!(
+            "cargo:rerun-if-changed={}",
+            source_library_dir.join("ggml").display()
+        );
+
+        // Build and link the vendored library from OUT_DIR
+        build_and_link_vendored(&build_library_dir);
     }
 
     #[cfg(not(feature = "vendored"))]
@@ -51,29 +78,36 @@ fn main() {
     }
 }
 
+/// Recursively copy a directory
+fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
+    fs::create_dir_all(dst)?;
+
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+
+        if src_path.is_dir() {
+            // Skip .git directories
+            if entry.file_name() == ".git" {
+                continue;
+            }
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            fs::copy(&src_path, &dst_path)?;
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(feature = "vendored")]
 fn build_and_link_vendored(library_dir: &PathBuf) {
     let ggml_dir = library_dir.join("ggml");
     let build_dir = ggml_dir.join("build");
 
-    // Clean previous builds - delete build directory if it exists
-    if build_dir.exists() {
-        std::fs::remove_dir_all(&build_dir).expect("Failed to remove build directory");
-    }
-
-    // Create fresh build directory
+    // Create build directory
     std::fs::create_dir_all(&build_dir).expect("Failed to create build directory");
-
-    // Run make clean in the library directory
-    let clean_status = Command::new("make")
-        .current_dir(&library_dir)
-        .arg("clean")
-        .status()
-        .expect("Failed to run make");
-
-    if !clean_status.success() {
-        panic!("Make clean failed");
-    }
 
     // Run cmake to configure GGML
     let backend_dl = cfg!(feature = "ggml_backend_dl");
@@ -132,27 +166,12 @@ fn build_and_link_vendored(library_dir: &PathBuf) {
         panic!("GGML build failed");
     }
 
-    // Copy GGML backend plugins to OUT_DIR when using backend_dl
+    // Expose GGML backend plugins directory when using backend_dl
     if backend_dl {
-        let out_dir = env::var("OUT_DIR").unwrap();
-        let ggml_backend_dir = PathBuf::from(&out_dir).join("ggml_backends");
-        fs::create_dir_all(&ggml_backend_dir).expect("Failed to create ggml_backends directory");
-
         let bin_dir = ggml_dir.join("build/bin");
-        let entries = fs::read_dir(&bin_dir).expect("Failed to read ggml build/bin directory");
-
-        for entry in entries {
-            let entry = entry.unwrap();
-            let path = entry.path();
-            if path.is_file() {
-                let file_name = path.file_name().unwrap();
-                let dest = ggml_backend_dir.join(file_name);
-                fs::copy(&path, &dest).expect("Failed to copy backend plugin file");
-            }
-        }
 
         // Expose the backends directory path to dependent crates
-        println!("cargo:ggml_backend_dir={}", ggml_backend_dir.display());
+        println!("cargo:ggml_backend_dir={}", bin_dir.display());
     }
 
     // Build nemotron-asr using make (build only the static library)
@@ -165,17 +184,6 @@ fn build_and_link_vendored(library_dir: &PathBuf) {
     if !make_status.success() {
         panic!("nemotron-asr build failed");
     }
-
-    // Tell cargo to rerun if source files change
-    // (This doesn't work because the build is in-tree)
-    //println!(
-    //    "cargo:rerun-if-changed={}",
-    //    library_dir.join("src").display()
-    //);
-    println!(
-        "cargo:rerun-if-changed={}",
-        library_dir.join("Makefile").display()
-    );
 
     // === Linking ===
 
@@ -190,7 +198,11 @@ fn build_and_link_vendored(library_dir: &PathBuf) {
     let mut lib_names: Vec<String> = Vec::new();
     let mut search_dirs: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
 
-    fn find_static_libs(dir: &PathBuf, lib_names: &mut Vec<String>, search_dirs: &mut std::collections::HashSet<PathBuf>) {
+    fn find_static_libs(
+        dir: &PathBuf,
+        lib_names: &mut Vec<String>,
+        search_dirs: &mut std::collections::HashSet<PathBuf>,
+    ) {
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
