@@ -17,7 +17,7 @@ ggml_backend_dl = ["nemotron-asr-sys/ggml_backend_dl"]
 vendored = ["nemotron-asr-sys/vendored"]
 
 [dependencies]
-nemotron-asr-sys = { path = "../nemotron-asr-sys" }
+nemotron-asr-sys = { version = "0.1.0", path = "../nemotron-asr-sys" }
 thiserror = "2.0"
 
 [dev-dependencies]

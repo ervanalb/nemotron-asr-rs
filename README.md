@@ -1,10 +1,23 @@
 # nemotron-asr-rs
 
+[![Crates.io](https://img.shields.io/crates/v/nemotron-asr.svg)](https://crates.io/crates/nemotron-asr)
+[![Documentation](https://docs.rs/nemotron-asr/badge.svg)](https://docs.rs/nemotron-asr)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Rust bindings for [nemotron-asr.cpp](https://github.com/m1el/nemotron-asr.cpp) - high-performance streaming automatic speech recognition (ASR) with NVIDIA's Nemotron model, featuring:
 
 - **Streaming ASR** with adjustable latency (80ms to 1120ms)
 - **Backend Selection** - any GGML supported backend, such as Vulkan, CUDA, Metal, or CPU.
 - **Low dependency** - and able to link fully statically (certain backends may require additional system libraries)
+
+## Installation
+
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+nemotron-asr = "0.1"
+```
 
 ## Project Structure
 
@@ -38,6 +51,31 @@ cargo run --example transcribe_stream -- --microphone --backend Vulkan0 --right-
 GGML_VULKAN=ON cargo run --example transcribe_stream --features ggml_backend_dl -- #<runtime options>#
 ```
 
+## Example Usage
+
+```rust
+use nemotron_asr::{Context, CacheConfig, LatencyMode};
+
+// Initialize model (e.g. load weights)
+let mut ctx = Context::new("model.gguf", Some("CPU"))?;
+
+// Configure 560ms latency
+let config = CacheConfig::with_latency(LatencyMode::Low);
+
+// Create stream (multiple streams can be created for a single context)
+let mut stream = ctx.create_stream(Some(&config))?;
+
+// Process audio chunks
+for chunk in audio_chunks {
+    let text = stream.process(&chunk);
+    print!("{}", text);
+}
+
+// Get final transcription
+let final_text = stream.finalize();
+println!("{}", final_text);
+```
+
 ## Building
 
 For your convenience, the source code for `nemotron-asr.cpp` is included.
@@ -69,31 +107,6 @@ Here are some other ways to configure the build:
 * `GGML_SYCL=[OFF]|ON` Whether to build the SYCL backend. Requires SYCL implementation like Intel oneAPI.
 * `GGML_OPENCL=[OFF]|ON` Whether to build the OpenCL backend. Requires OpenCL library.
 * `GGML_CANN=[OFF]|ON` Whether to build the CANN backend. Requires Ascend CANN libraries.
-
-## Example Usage
-
-```rust
-use nemotron_asr::{Context, CacheConfig, LatencyMode};
-
-// Initialize model (e.g. load weights)
-let mut ctx = Context::new("model.gguf", Some("CPU"))?;
-
-// Configure 560ms latency
-let config = CacheConfig::with_latency(LatencyMode::Low);
-
-// Create stream (multiple streams can be created for a single context)
-let mut stream = ctx.create_stream(Some(&config))?;
-
-// Process audio chunks
-for chunk in audio_chunks {
-    let text = stream.process(&chunk);
-    print!("{}", text);
-}
-
-// Get final transcription
-let final_text = stream.finalize();
-println!("{}", final_text);
-```
 
 ## License
 
