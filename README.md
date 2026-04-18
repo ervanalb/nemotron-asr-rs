@@ -1,30 +1,20 @@
 # nemotron-asr-rs
 
-Rust bindings for [nemotron-asr.cpp](https://github.com/your-org/nemotron-asr.cpp) - high-performance streaming automatic speech recognition (ASR) with NVIDIA's Nemotron model, featuring:
+Rust bindings for [nemotron-asr.cpp](https://github.com/m1el/nemotron-asr.cpp) - high-performance streaming automatic speech recognition (ASR) with NVIDIA's Nemotron model, featuring:
 
 - **Streaming ASR** with adjustable latency (80ms to 1120ms)
 - **Backend Selection** - any GGML supported backend, such as Vulkan, CUDA, Metal, or CPU.
-- **Low system library count** - able to link fully statically (certain backends may require additional system libraries)
+- **Low dependency** - and able to link fully statically (certain backends may require additional system libraries)
 
 ## Project Structure
 
 This workspace contains two crates:
 
-### `nemotron-asr-sys`
+`nemotron-asr-sys` is low-level FFI bindings to the C API of nemotron-asr.cpp.
+You probably don't want to use this directly.
+Use the safe `nemotron-asr` wrapper instead.
 
-Low-level FFI bindings to the C API of nemotron-asr.cpp. Generated using `bindgen` and includes:
-
-- Raw C function bindings
-- Type definitions matching the C structs
-- GGML backend query functions
-
-**You probably don't want to use this directly.** Use the safe `nemotron-asr` wrapper instead.
-
-### `nemotron-asr`
-
-Safe, idiomatic Rust wrapper providing streaming ASR interface.
-
-See [nemotron-asr/README.md](nemotron-asr/README.md) for usage examples.
+`nemotron-asr` provides safe, idiomatic Rust wrapper providing streaming ASR interface.
 
 ## Quick Start
 
@@ -32,11 +22,11 @@ See [nemotron-asr/README.md](nemotron-asr/README.md) for usage examples.
 # List available backends
 cargo run --example transcribe_stream
 
-# Try the example (requires model and audio)
+# Transcribe audio (requires model and audio--see original .cpp project for details)
 cargo run --example transcribe_stream -- model.gguf audio.pcm
 
-# Run the example with a different configuration
-cargo run --example transcribe_stream --features ggml_backend_dl
+# Change the compile-time configuration
+GGML_VULKAN=ON cargo run --example transcribe_stream --features ggml_backend_dl
 ```
 
 ## Building
@@ -72,8 +62,8 @@ use nemotron_asr::{Context, CacheConfig, LatencyMode};
 // Initialize model (e.g. load weights)
 let mut ctx = Context::new("model.gguf", Some("CPU"))?;
 
-// Configure for low-latency streaming
-let config = CacheConfig::with_latency(LatencyMode::PureCausal);
+// Configure 560ms latency
+let config = CacheConfig::with_latency(LatencyMode::Low);
 
 // Create stream (multiple streams can be created for a single context)
 let mut stream = ctx.create_stream(Some(&config))?;
