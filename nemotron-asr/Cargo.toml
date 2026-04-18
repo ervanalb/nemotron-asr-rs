@@ -14,6 +14,14 @@ vendored = ["nemotron-asr-sys/vendored"]
 nemotron-asr-sys = { path = "../nemotron-asr-sys" }
 thiserror = "2.0"
 
+[dev-dependencies]
+clap = "4.5"
+reqwest = { version = "0.12", features = ["blocking", "stream"] }
+indicatif = "0.17"
+hound = "3.5"
+cpal = "0.15"
+ctrlc = "3.4"
+
 [[example]]
 name = "transcribe_stream"
 path = "examples/transcribe_stream.rs"

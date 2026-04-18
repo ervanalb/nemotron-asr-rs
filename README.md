@@ -19,14 +19,23 @@ Use the safe `nemotron-asr` wrapper instead.
 ## Quick Start
 
 ```bash
-# List available backends
-cargo run --example transcribe_stream
+# Show help and list available backends
+cargo run --example transcribe_stream -- --help
 
-# Transcribe audio (requires model and audio--see original .cpp project for details)
-cargo run --example transcribe_stream -- model.gguf audio.pcm
+# Transcribe a WAV file
+cargo run --example transcribe_stream -- --wav audio.wav
+
+# Transcribe from system microphone
+cargo run --example transcribe_stream -- --microphone
+
+# Use the 8-bit quantized model
+cargo run --example transcribe_stream -- --model nemotron-speech-streaming-0.6B-v0.1.Q8_0.gguf --microphone
+
+# Use a specific backend and latency settings
+cargo run --example transcribe_stream -- --microphone --backend Vulkan0 --right-context 0
 
 # Change the compile-time configuration
-GGML_VULKAN=ON cargo run --example transcribe_stream --features ggml_backend_dl
+GGML_VULKAN=ON cargo run --example transcribe_stream --features ggml_backend_dl -- #<runtime options>#
 ```
 
 ## Building
@@ -52,7 +61,7 @@ Here are some other ways to configure the build:
 
 * `CXXSTDLIB_LINKAGE=[dylib]|static|none` Sets how the C++ standard library should be linked in.
 * `CXXSTDLIB=[stdc++]|something else` Sets the library name of the C++ standard library
-* `GGML_CPU=[ON]|OFF` Whether to build the CPU backend.
+* `GGML_CPU=OFF|[ON]` Whether to build the CPU backend.
 * `GGML_OPENMP=OFF|[ON]` Whether to build with OpenMP for the CPU backend. Requires a system library for OpenMP.
 * `GGML_CUDA=[OFF]|ON` Whether to build the CUDA backend. Requires CUDA runtime and libraries.
 * `GGML_VULKAN=[OFF]|ON` Whether to build the Vulkan backend. Requires a Vulkan system library.
